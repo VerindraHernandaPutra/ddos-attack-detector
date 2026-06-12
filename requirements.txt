@@ -1,0 +1,27 @@
+# Federated Learning — DDoS Detection
+# Root requirements for local development (notebooks + report generation)
+# Docker simulation environments use fl-simulation-*/requirements-docker.txt
+
+# FL Framework
+flwr==1.2.0
+grpcio
+
+# ML & Data
+scikit-learn
+tensorflow
+imbalanced-learn
+numpy
+pandas
+scipy
+
+# Visualization
+matplotlib
+seaborn
+
+# Report generation
+openpyxl
+pyarrow
+
+# Jupyter
+jupyter
+ipykernel

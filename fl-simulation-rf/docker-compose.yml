@@ -1,0 +1,57 @@
+# ─── Shared volume shortcuts ───────────────────────────────────
+x-data-volume: &data-volume
+  type: bind
+  source: ../ddos-dataset-processing
+  target: /app/ddos-dataset-processing
+  read_only: true
+
+x-results-volume: &results-volume
+  type: bind
+  source: ./results
+  target: /app/fl-simulation-rf/results
+
+services:
+
+  fl-server:
+    build: .
+    container_name: fl-simulation-rf-server
+    command: python server.py
+    ports:
+      - "8084:8084"
+    volumes:
+      - *data-volume
+      - *results-volume
+    networks:
+      - fl-net
+
+  fl-client1:
+    build: .
+    container_name: fl-simulation-rf-client1
+    command: sh -c "sleep 20 && python client1.py"
+    depends_on:
+      - fl-server
+    environment:
+      - SERVER_ADDRESS=fl-simulation-rf-server:8084
+    volumes:
+      - *data-volume
+      - *results-volume
+    networks:
+      - fl-net
+
+  fl-client2:
+    build: .
+    container_name: fl-simulation-rf-client2
+    command: sh -c "sleep 20 && python client2.py"
+    depends_on:
+      - fl-server
+    environment:
+      - SERVER_ADDRESS=fl-simulation-rf-server:8084
+    volumes:
+      - *data-volume
+      - *results-volume
+    networks:
+      - fl-net
+
+networks:
+  fl-net:
+    driver: bridge

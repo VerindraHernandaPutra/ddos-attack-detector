@@ -1,0 +1,57 @@
+# ─── Shared volume shortcuts ───────────────────────────────────
+x-data-volume: &data-volume
+  type: bind
+  source: ../ddos-dataset-processing
+  target: /app/ddos-dataset-processing
+  read_only: true
+
+x-results-volume: &results-volume
+  type: bind
+  source: ./results
+  target: /app/fl-simulation-dt/results
+
+services:
+
+  fl-server:
+    build: .
+    container_name: fl-simulation-dt-server
+    command: python server.py
+    ports:
+      - "8083:8083"
+    volumes:
+      - *data-volume
+      - *results-volume
+    networks:
+      - fl-net
+
+  fl-client1:
+    build: .
+    container_name: fl-simulation-dt-client1
+    command: sh -c "sleep 20 && python client1.py"
+    depends_on:
+      - fl-server
+    environment:
+      - SERVER_ADDRESS=fl-simulation-dt-server:8083
+    volumes:
+      - *data-volume
+      - *results-volume
+    networks:
+      - fl-net
+
+  fl-client2:
+    build: .
+    container_name: fl-simulation-dt-client2
+    command: sh -c "sleep 20 && python client2.py"
+    depends_on:
+      - fl-server
+    environment:
+      - SERVER_ADDRESS=fl-simulation-dt-server:8083
+    volumes:
+      - *data-volume
+      - *results-volume
+    networks:
+      - fl-net
+
+networks:
+  fl-net:
+    driver: bridge

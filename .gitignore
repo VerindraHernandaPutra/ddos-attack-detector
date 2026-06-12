@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Large dataset CSVs (regenerate via unify_dataset.ipynb)
+ddos-dataset-processing/unified_train.csv
+ddos-dataset-processing/unified_val.csv
+ddos-dataset-processing/unified_test.csv
+
+# Excel lock files
+~$*.xlsx
+~$*.xls
+
+# OS
+.DS_Store
+Thumbs.db

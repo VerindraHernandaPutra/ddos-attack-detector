@@ -1,0 +1,9 @@
+flwr==1.2.0
+grpcio
+scikit-learn
+pandas
+numpy
+matplotlib
+seaborn
+pyarrow
+imbalanced-learn

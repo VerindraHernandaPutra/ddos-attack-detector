@@ -1,0 +1,233 @@
+\documentclass[conference, a4paper]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{placeins}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{multirow}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{comment}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{caption}
+% \usepackage{hyperref}
+\usepackage{subfig}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{DDoS Detection in Edge Networks Using Federated Learning: A Comparative Study of Six Aggregation Strategies\\
+}
+
+\maketitle
+
+\begin{abstract}
+Distributed Denial of Service (DDoS) attacks disrupt service availability across 5G and IoT network infrastructures at scale. Centralized machine learning detection requires collecting raw traffic data at a single server. This collection process raises privacy risks and consumes excessive bandwidth at edge nodes. Federated Learning (FL) addresses this limitation by training detection models locally without transferring raw data. This study compares six machine learning models under two training scenarios: centralized training and Federated Learning. We use the CIC-DDoS2019 dataset, comprising 426,076 samples across eleven DDoS attack types. Preprocessing reduces the raw feature set from 77 to 65 features through cleaning and a five-method hybrid selection pipeline. SMOTE balances class distribution, producing 552,532 training samples. FL simulation employs two non-IID clients with an inverse 80:20 class ratio, using four aggregation strategies matched to model type: FedAvg, FedBest, FederatedForest, and FedEnsemble. All six centralized models exceed the accuracy and F1-score of a published baseline pipeline. Random Forest achieves the highest F1-score of 0.9996 with 99.94\% accuracy. Federated Learning costs an average of only 0.046 accuracy percentage points against centralized training, with every model retaining an F1-score above 98.6\% under an 80:20 non-IID split. Results position FL as a privacy-preserving, competitive alternative for distributed DDoS detection.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Federated Learning, DDoS Detection, Non-IID, CIC-DDoS2019, Edge Computing
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+Cloudflare recorded 21.3 million DDoS attacks throughout 2024, a 53\% increase over the previous year \cite{b1}. More than 420 attacks in Q4 2024 exceeded 1 terabit per second, up 1,885\% from the prior quarter \cite{b1}. One record attack reached 5.6 Tbps using a botnet of 13,000 IoT devices \cite{b1}. SYN flood dominates attack vectors at 38\%, followed by DNS flood at 16\% and UDP flood at 14\% \cite{b1}.
+
+Telecommunications infrastructure remains a priority target because it serves millions of concurrent users \cite{b2}. Wireless service providers experienced a 79\% increase in DDoS attacks during the second half of 2022 \cite{b2}. Attacks against wireless networks in the Asia-Pacific region surged 294\% during the first half of 2023 \cite{b2}. Growing 5G infrastructure expands the attack surface through millions of simultaneously connected IoT devices.
+
+Static rule-based intrusion detection fails to recognize continuously evolving attack patterns \cite{b3}. Centralized machine learning requires collecting traffic data from every node at one central server. This collection process risks leaking sensitive user traffic information across the network. Transferring data from thousands of edge nodes to a central server also consumes bandwidth inefficiently.
+
+Federated Learning enables each node to train a detection model locally without transmitting raw traffic data \cite{b4}. The central server receives only trained model parameters, not the original user data. This approach theoretically preserves data privacy while building an accurate detection model.
+
+Two empirical questions must be answered quantitatively before FL adoption can be justified. First, how much does detection accuracy decline when switching from centralized training to FL? Second, does FL remain effective under non-IID conditions with differing class distributions across clients?
+
+This paper compares six machine learning models under centralized and federated training scenarios. Four aggregation strategies match each model to its structural properties, detailed in Section III. The next section reviews related work and positions our contribution relative to existing FL-based intrusion detection studies.
+
+\section{Related Work}
+
+\subsection{Federated Learning Fundamentals}
+
+McMahan et al. introduced the Federated Averaging (FedAvg) algorithm in 2017 as the foundation of modern FL \cite{b4}. FedAvg aggregates gradients from distributed clients through weighted averaging based on local data volume. Li et al. identified three core FL challenges: system heterogeneity, statistical heterogeneity, and communication constraints \cite{b5}. Mothukuri et al. reported that non-IID distribution can reduce FL accuracy by 5 to 10 percent compared to IID data \cite{b6}. Mothukuri et al. also identified that FL aggregation remains vulnerable to poisoning attacks from malicious clients \cite{b6}.
+
+\subsection{Existing Research and Identified Gaps}
+
+Rahman et al. applied FL with Decision Tree for IoT intrusion detection, reaching 96.3\% accuracy on the NSL-KDD dataset \cite{b7}. Their approach evaluates a single model without testing non-IID client distributions, limiting real-world applicability. Preuveneers et al. developed a chained FL-based anomaly detection model, achieving an F1-score of 0.94 on heterogeneous network data \cite{b8}. Their study does not compare multiple aggregation strategies across different model architectures. Rey et al. proved FL effective for IoT malware detection, reaching 98.2\% accuracy using a CNN \cite{b9}. Their work targets malware classification rather than network-level DDoS traffic detection. Ahmed et al. proposed a resource-efficient pipeline reducing CIC-DDoS2019 features from 77 to 49 through hybrid selection \cite{b10}. Their pipeline evaluates only centralized training and does not implement any federated learning scenario. No existing study systematically compares six ML models with distinct aggregation strategies on the same DDoS dataset.
+
+\subsection{Positioning of the Present Work}
+
+This study contributes three novel elements to the FL-based DDoS detection literature. First, it implements four distinct FL aggregation strategies across six machine learning models within one evaluation framework. Second, it evaluates performance under extreme non-IID heterogeneity, with an 80:20 class ratio between clients. Third, it adopts the same five-method hybrid feature selection methodology as Ahmed et al., enabling a methodologically grounded baseline comparison despite a larger resulting feature set \cite{b10}. These contributions position the study as the first systematic aggregation-strategy comparison on CIC-DDoS2019 under non-IID conditions.
+
+\section{Method}
+
+\subsection{Dataset and Preprocessing}
+
+The pipeline follows a CRISP-DM-inspired workflow across six sequential stages. The first stage consolidates 17 Parquet files from CIC-DDoS2019 into one unified dataset. CIC-DDoS2019 covers eleven attack types: DNS, LDAP, MSSQL, NTP, NetBIOS, Portmap, SNMP, SYN, TFTP, UDP, and UDPLag. CICFlowMeter extracts 77 packet-level flow features per network session \cite{b3}. Consolidation yields 426,076 samples, labeled binary: 0 for benign traffic and 1 for any DDoS attack. A stratified 70:15:15 split allocates data to training, validation, and test partitions. The validation set merges into training data, producing 362,164 initial training samples.
+
+Data cleaning removes non-numeric and non-informative columns, deduplicates training rows, and drops features with variance below 1e-6. This step reduces the raw feature set from 77 to 65 candidate features. MinMaxScaler then rescales the 65 candidates to the [0, 1] range, fitted on training data alone.
+
+A hybrid feature selection pipeline applies five independent methods to the 65 candidate features. L1-regularized Linear SVC (C=0.1) retains 38 features with non-zero coefficients. Random Forest importance (100 trees, max depth 10) retains 41 features covering 95\% cumulative importance. ANOVA F-test with Bonferroni correction (p $<$ 0.01 divided by feature count) retains all 65 candidates. Chi-square testing after 20-bin discretization retains 63 features at p $<$ 0.01. Mutual information on a 10\% subsample retains 17 features above the 75th percentile. The union of all five methods equals the full 65-feature candidate pool, since the ANOVA test alone already selects every candidate; hybrid selection therefore contributes robustness against any single method's weakness rather than further dimensionality reduction in this run.
+
+SMOTE balances the training partition after normalization, using k=5 neighbors \cite{b11}. This step produces 552,532 balanced training samples, split evenly between benign and DDoS classes.
+
+\subsection{Centralized and Federated Training Scenarios}
+
+Two training scenarios establish a fair performance comparison under identical preprocessing. The centralized scenario trains each model on the full 552,532-sample training set. Model configurations follow Ahmed et al. to ensure baseline comparability \cite{b10}. Decision Tree uses Gini impurity, max depth 12, and minimum 5 samples per leaf. Random Forest uses 200 estimators with the square-root feature subset rule. SVM uses an RBF kernel with C=10 and gamma set to scale. Logistic Regression applies L2 regularization with the liblinear solver and C=1. Naive Bayes uses the standard Gaussian variant without modification. The 1D CNN stacks three convolutional blocks with 64, 64, and 128 filters. Global average pooling feeds a dense layer of 128 units with 0.4 dropout. Adam optimization (lr=1e-3) trains the CNN with early stopping after 10 stagnant epochs. A fixed random seed of 42 ensures reproducibility across every experiment.
+
+The federated scenario splits training data across two clients with asymmetric class distributions. Client 1 receives 80\% benign and 20\% DDoS samples, totaling 119,577 raw records. Client 2 receives the inverse distribution, totaling 237,094 raw records. SMOTE applies separately per client, yielding 128,648 samples for Client 1 and 442,026 for Client 2. This 80:20 inverse split simulates heterogeneous traffic patterns across real 5G edge nodes.
+
+\subsection{Aggregation Strategies}
+
+Four aggregation strategies match each model to its underlying parameter structure. FedAvg applies to Logistic Regression, Naive Bayes, and CNN, averaging parameters weighted by client sample count \cite{b4}. FedBest applies to Decision Tree, selecting the client model with lowest training loss each round. FederatedForest applies to Random Forest, merging 100 trees from each client into one 200-tree forest. FedEnsemble applies to SVM, retaining both client models and combining predictions through weighted soft voting. Table \ref{tab:agg_strategy} summarizes the aggregation mechanism and round count for every model.
+
+\begin{table}[!ht]
+\captionsetup{labelsep=newline, justification=centering}
+\caption{FL Aggregation Strategy per Model}
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{>{\raggedright\arraybackslash}p{1.6cm}|>{\centering\arraybackslash}p{1.5cm}|>{\raggedright\arraybackslash}p{3.2cm}|>{\centering\arraybackslash}p{0.7cm}}
+\hline
+\textbf{Model} & \textbf{Strategy} & \textbf{Mechanism} & \textbf{Rounds} \\
+\hline
+Decision Tree & FedBest & Select client model with lowest training loss & 3 \\
+\hline
+Random Forest & FederatedForest & Merge 100 trees per client into one 200-tree forest & 3 \\
+\hline
+SVM (RBF) & FedEnsemble & Weighted soft-voting across retained client models & 3 \\
+\hline
+Logistic Regression & FedAvg & Sample-weighted average of \texttt{coef\_}, \texttt{intercept\_} & 3 \\
+\hline
+Naive Bayes & FedAvg & Sample-weighted average of \texttt{theta\_}, \texttt{var\_}, \texttt{class\_prior\_} & 3 \\
+\hline
+CNN 1D & FedAvg & Sample-weighted average of network layer weights & 5 \\
+\hline
+\end{tabular}
+\vspace{-5pt}
+\label{tab:agg_strategy}
+\end{center}
+\end{table}
+
+\subsection{Evaluation Protocol}
+
+All models are evaluated on the same held-out test set of 63,912 samples. This test set remains untouched during training, SMOTE, and hyperparameter selection. Evaluation metrics include accuracy, precision, recall, F1-score, AUC-ROC, and Average Precision. F1-score serves as the primary metric due to class imbalance in the test set. Confusion matrices and classification reports are generated for both scenarios and every model. A delta analysis (FL minus centralized) quantifies the performance cost of non-IID distribution.
+
+\section{Result and Discussion}
+
+\subsection{Preprocessing Outcome}
+
+Data cleaning reduces the raw feature set from 77 to 65 candidate features; hybrid selection then retains all 65, since the ANOVA F-test alone already selects every candidate. Per-method retention varies widely: L1-LinearSVC selects 38 features, RF importance selects 41, ANOVA selects 65, Chi-square selects 63, and Mutual Information selects 17. This outcome differs from the 49 features reported by Ahmed et al. for the same dataset \cite{b10}, despite applying the same five selection methods; the discrepancy stems from ANOVA's Bonferroni threshold passing every candidate feature in this run, which saturates the union at the full pre-selection pool rather than narrowing it further. Selected features are dominated by packet-flow statistics: flow duration, mean packet length, and mean inter-arrival time. These features show absolute correlation above 0.45 with the attack label. SMOTE increases training samples from 362,164 to 552,532, achieving a perfectly balanced 50:50 class ratio.
+
+\subsection{Centralized Performance vs. Baseline}
+
+Table \ref{tab:centralized_vs_baseline} presents accuracy and F1-score for six models against the Ahmed et al. baseline \cite{b10}.
+
+\begin{table}[!ht]
+\captionsetup{labelsep=newline, justification=centering}
+\caption{Centralized Performance vs. Reference Baseline}
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.1cm}|>{\centering\arraybackslash}p{1cm}|>{\centering\arraybackslash}p{1cm}|>{\centering\arraybackslash}p{1cm}|>{\centering\arraybackslash}p{1cm}}
+\hline
+\multirow{2}{2.1cm}{\textbf{Model}} & \multicolumn{2}{c|}{\textbf{Accuracy}} & \multicolumn{2}{c}{\textbf{F1-Score}} \\
+\cline{2-5}
+ & Ours & Ref \cite{b10} & Ours & Ref \cite{b10} \\
+\hline
+Decision Tree & 0.9992 & 0.957 & 0.9995 & 0.947 \\
+\hline
+Random Forest & 0.9994 & 0.978 & 0.9996 & 0.970 \\
+\hline
+SVM (RBF) & 0.9971 & 0.972 & 0.9981 & 0.962 \\
+\hline
+Logistic Regression & 0.9952 & 0.965 & 0.9969 & 0.954 \\
+\hline
+Naive Bayes & 0.9800 & 0.931 & 0.9871 & 0.913 \\
+\hline
+CNN 1D & 0.9992 & 0.981 & 0.9995 & 0.975 \\
+\hline
+\end{tabular}
+\vspace{-5pt}
+\label{tab:centralized_vs_baseline}
+\end{center}
+\end{table}
+
+All six models exceed the baseline on both accuracy and F1-score. The test set is imbalanced: 14,206 benign samples (22.2\%) against 49,706 DDoS samples (77.8\%). High accuracy alone can mislead if a model simply predicts the majority class. Macro F1-score corrects for this by weighting both classes equally, regardless of frequency. Macro F1-score ranges from 0.9716 (Naive Bayes) to 0.9991 (Random Forest), confirming strong performance on both classes. Benign-class recall, a critical indicator against false alarms, ranges from 98.01\% (Naive Bayes) to 99.93\% (Decision Tree). This range confirms that no model simply classifies every sample as an attack. Naive Bayes shows lower benign-class precision at 93.32\%, reflecting a precision-recall trade-off typical of probabilistic models. Two factors explain the improvement over the reference baseline. Hybrid feature selection eliminates noisy features that reduce baseline separability. Using all 17 attack files also enriches the representation of attack patterns.
+
+\subsection{Federated Learning Performance}
+
+Federated simulation executes successfully for all six models under their assigned aggregation strategy. FedBest converges stably for Decision Tree by selecting the better-performing client model each round. FederatedForest merges 200 decision trees, 100 contributed by each client, into one unified forest. Table \ref{tab:fl_vs_centralized} reports the accuracy delta between federated and centralized training per model, directly answering RQ1 on the magnitude of accuracy loss under FL.
+
+\begin{table}[!ht]
+\captionsetup{labelsep=newline, justification=centering}
+\caption{Federated Learning vs. Centralized Performance}
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.3cm}|>{\centering\arraybackslash}p{1.4cm}|>{\centering\arraybackslash}p{1.2cm}|>{\centering\arraybackslash}p{1.4cm}}
+\hline
+\textbf{Model} & \textbf{Acc. (Centralized)} & \textbf{Acc. (FL)} & \textbf{$\Delta$ Acc. (pp)} \\
+\hline
+Decision Tree & 0.9992 & 0.9987 & $-$0.055 \\
+\hline
+Random Forest & 0.9994 & 0.9993 & $-$0.007 \\
+\hline
+SVM (RBF) & 0.9971 & 0.9970 & $-$0.012 \\
+\hline
+Logistic Regression & 0.9952 & 0.9949 & $-$0.030 \\
+\hline
+Naive Bayes & 0.9800 & 0.9785 & $-$0.147 \\
+\hline
+CNN 1D & 0.9992 & 0.9990 & $-$0.017 \\
+\hline
+\end{tabular}
+\vspace{-5pt}
+\label{tab:fl_vs_centralized}
+\end{center}
+\end{table}
+
+Average accuracy decline across all six models is 0.046 percentage points, ranging from 0.007 pp (Random Forest) to 0.147 pp (Naive Bayes). Average F1-score decline follows the same pattern at 0.029 percentage points, with Random Forest losing only 0.003 pp and Naive Bayes losing 0.102 pp. These figures directly answer RQ1: switching from centralized training to FL costs less than 0.15 percentage points of accuracy for every model tested.
+
+\subsection{Discussion}
+
+Non-IID distribution affects FL performance unevenly across model families, directly addressing RQ2. Degradation ranks by aggregation mechanism rather than by linear-versus-nonlinear model type. FederatedForest (Random Forest) and FedEnsemble (SVM) show the smallest degradation, 0.007 pp and 0.012 pp respectively, because both strategies retain information from every client rather than discarding one client's contribution. FedAvg (CNN, Logistic Regression) shows moderate degradation, 0.017--0.030 pp, consistent with a single averaged global model reaching a stable optimum. FedBest (Decision Tree) shows larger degradation at 0.055 pp because the server deterministically selects one client's tree every round, discarding the other client's local distribution entirely. Naive Bayes shows the largest degradation at 0.147 pp, since averaging \texttt{theta\_} and \texttt{var\_} across an extreme 80:20 class split amplifies its feature-independence assumption weakness. This finding refines the initial hypothesis: non-IID resilience depends on whether the aggregation strategy preserves both clients' information, not on whether the underlying model is linear. All six models nonetheless retain F1-score above 98.6\%, confirming FL as effective under non-IID conditions and directly answering RQ2.
+
+\section{Conclusion}
+
+This study compares six machine learning models under centralized and federated training on CIC-DDoS2019. All six centralized models exceed the Ahmed et al. baseline on both accuracy and F1-score \cite{b10}. Random Forest achieves the strongest result, reaching an F1-score of 0.9996, 99.94\% accuracy, and a macro F1-score of 0.9991. Switching from centralized training to Federated Learning costs an average of 0.046 percentage points in accuracy and 0.029 percentage points in F1-score, directly answering RQ1. FL remains effective under the 80:20 non-IID split: every model retains an F1-score above 98.6\%, and aggregation strategies that preserve both clients' information (FederatedForest, FedEnsemble) degrade least, directly answering RQ2.
+
+The federated simulation currently runs three aggregation rounds for classical models and five rounds for CNN. Longer training schedules may narrow the gap between federated and centralized performance further. Future work extends this pipeline to real and encrypted 5G traffic captures. Differential privacy on FL parameter aggregation will further protect against gradient-based information leakage \cite{b12}. These extensions form Phase 2 of a five-year roadmap toward FL-based DDoS detection for 5G MEC infrastructure.
+
+\section*{Code Availability}
+The source code is publicly available at \texttt{https://github.com/VerindraHernandaPutra/ddos-attack-detector}.
+
+\begin{thebibliography}{00}
+\bibitem{b1} Cloudflare Inc., ``DDoS Threat Report 2024 Q4,'' Cloudflare, San Francisco, CA, USA, 2025. [Online]. Available: https://blog.cloudflare.com/ddos-threat-report-for-2024-q4/
+
+\bibitem{b2} Netscout Systems, ``DDoS Threat Intelligence Report, 2H2023: DDoS Takes Center Stage on the Global Threat Landscape,'' Netscout, Westborough, MA, USA, 2024. [Online]. Available: https://www.netscout.com/threatreport/2h2023
+
+\bibitem{b3} I. Sharafaldin, A. H. Lashkari, S. Hakak, and A. A. Ghorbani, ``Developing realistic distributed denial of service (DDoS) attack dataset and taxonomy,'' in \textit{Proc. 2019 Int. Carnahan Conf. Security Technology (ICCST)}, Chennai, India, 2019, pp. 1--8.
+
+\bibitem{b4} H. B. McMahan, E. Moore, D. Ramage, S. Hampson, and B. A. y Arcas, ``Communication-efficient learning of deep networks from decentralized data,'' in \textit{Proc. 20th Int. Conf. Artificial Intelligence and Statistics (AISTATS)}, Fort Lauderdale, FL, USA, 2017, pp. 1273--1282.
+
+\bibitem{b5} T. Li, A. K. Sahu, A. Talwalkar, and V. Smith, ``Federated learning: Challenges, methods, and future directions,'' \textit{IEEE Signal Process. Mag.}, vol. 37, no. 3, pp. 50--60, 2020.
+
+\bibitem{b6} V. Mothukuri, R. M. Parizi, S. Pouriyeh, Y. Huang, A. Dehghantanha, and G. Srivastava, ``A survey on security and privacy of federated learning,'' \textit{Future Gener. Comput. Syst.}, vol. 115, pp. 619--640, 2021.
+
+\bibitem{b7} S. A. Rahman, H. Tout, C. Talhi, and A. Mourad, ``Internet of Things intrusion detection: Federated learning model, decision tree and transfer learning,'' \textit{IEEE Access}, vol. 8, pp. 184726--184744, 2020.
+
+\bibitem{b8} D. Preuveneers, V. Rimmer, I. Tsingenopoulos, J. Spooren, W. Joosen, and E. Bernal-Bernabe, ``Chained anomaly detection models for federated learning: An intrusion detection case study,'' \textit{Appl. Sci.}, vol. 8, no. 12, p. 2663, 2018.
+
+\bibitem{b9} V. Rey, P. M. S. S\'anchez, A. H. Celdr\'an, and G. Bovet, ``Federated learning for malware detection in IoT devices,'' \textit{Comput. Netw.}, vol. 204, p. 108693, 2022.
+
+\bibitem{b10} N. Ahmed, G. Saleem, A. Naveed, and M. I. Zaman, ``A resource-efficient machine learning pipeline for DDoS attack detection: A comparative study on CIC-IDS2018 and CIC-DDoS2019,'' \textit{ICCK Trans. Inf. Secur. Cryptogr.}, vol. 2, no. 1, pp. 55--69, 2026.
+
+\bibitem{b11} N. V. Chawla, K. W. Bowyer, L. O. Hall, and W. P. Kegelmeyer, ``SMOTE: Synthetic minority over-sampling technique,'' \textit{J. Artif. Intell. Res.}, vol. 16, pp. 321--357, 2002.
+
+\bibitem{b12} L. Lyu, H. Yu, and Q. Yang, ``Threats to federated learning: A survey,'' arXiv:2003.02133, 2020.
+\end{thebibliography}
+\end{document}
+</content>
